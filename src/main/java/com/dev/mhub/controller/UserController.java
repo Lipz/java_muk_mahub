@@ -11,7 +11,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import jakarta.validation.Valid;
 import java.util.List;
-import com.dev.mhub.dto.user.UserRequest;
+import com.dev.mhub.dto.user.UserRegisterRequest;
 import com.dev.mhub.dto.user.UserResponse;
 import com.dev.mhub.services.UserService;
 
@@ -25,7 +25,7 @@ public class UserController {
     }
 
     @PostMapping
-    public ResponseEntity<UserResponse> createUser(@Valid @RequestBody UserRequest request) {
+    public ResponseEntity<UserResponse> createUser(@Valid @RequestBody UserRegisterRequest request) {
         UserResponse response = userService.createUser(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }

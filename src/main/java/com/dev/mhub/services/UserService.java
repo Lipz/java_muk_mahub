@@ -2,7 +2,7 @@ package com.dev.mhub.services;
 
 import java.util.List;
 import org.springframework.stereotype.Service;
-import com.dev.mhub.dto.user.UserRequest;
+import com.dev.mhub.dto.user.UserRegisterRequest;
 import com.dev.mhub.dto.user.UserResponse;
 import com.dev.mhub.entity.User;
 import com.dev.mhub.exception.user.EmailAlreadyExistsException;
@@ -17,7 +17,7 @@ public class UserService {
         this.userRepository = userRepository;
     }
 
-    public UserResponse createUser(UserRequest user) {
+    public UserResponse createUser(UserRegisterRequest user) {
         if(userRepository.existsByEmail(user.email())){
             throw new EmailAlreadyExistsException(user.email());
         }

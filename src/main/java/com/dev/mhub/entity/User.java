@@ -4,6 +4,8 @@ import java.time.LocalDateTime;
 import org.hibernate.annotations.CreationTimestamp;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -28,8 +30,9 @@ public class User {
     @Column(nullable = false)
     private String password;
 
-    @Column(nullable = false)
-    private Boolean status;
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private UserStatus status = UserStatus.ACTIVE;
 
     @Column(nullable = false)
     private Boolean isAdmin;
@@ -42,12 +45,9 @@ public class User {
     }
 
     // Constructor without id and createdAt (since the database auto-generates them)
-    public User(String name, String email, String password) {
-        this.name = name;
-        this.email = email;
-        this.password = password;
-        this.status = true;
-        this.isAdmin = false;
+    public User(String name, String email, String password, boolean admin, UserStatus status) {
+        this.name = name; this.email = email; this.password = password;
+        this.isAdmin = admin; this.status = status;
     }
 
     // --- Getters and Setters ---
@@ -84,11 +84,11 @@ public class User {
         this.password = password;
     }
 
-    public boolean isStatus() {
+    public UserStatus getStatus() {
         return status;
     }
 
-    public void setStatus(boolean status) {
+    public void setStatus(UserStatus status) {
         this.status = status;
     }
 
