@@ -7,6 +7,8 @@ import com.dev.mhub.entity.User;
 
 @Repository
 public interface UserRepository extends JpaRepository<User, Long> {
-    Optional<User> findByEmail(String email);
+    Optional<User> findByEmailIgnoreCase(String email);
+    User findByEmail(String email);
     boolean existsByEmailIgnoreCase(String email);
+    boolean existsByEmail(String emaString);
 }

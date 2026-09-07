@@ -9,15 +9,4 @@ public record UserResponse(
     String email,
     UserStatus status,
     Boolean isAdmin
-){
-
-    public static UserResponse from(User user) {
-        return new UserResponse(
-            user.getId(),
-            user.getName(),
-            user.getEmail(), 
-            user.getStatus(), 
-            user.isAdmin() 
-        );
-    }
-}
+){}

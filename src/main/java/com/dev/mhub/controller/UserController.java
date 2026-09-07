@@ -11,12 +11,14 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import jakarta.validation.Valid;
 import java.util.List;
+
+import com.dev.mhub.dto.user.UserLoginRequest;
 import com.dev.mhub.dto.user.UserRegisterRequest;
 import com.dev.mhub.dto.user.UserResponse;
 import com.dev.mhub.services.UserService;
 
 @RestController
-@RequestMapping("/api/v1/users")
+@RequestMapping("/api/v1")
 public class UserController {
     
     private final UserService userService;
@@ -35,11 +37,11 @@ public class UserController {
         return ResponseEntity.ok(userService.getUsers());
     }
 
-    @GetMapping("/{id}")
-    public ResponseEntity<UserResponse> getUserById(@PathVariable Long id) {
-        return ResponseEntity.ok(
-                userService.getUser(id)
-        );
-    }
+    // @GetMapping("/{id}")
+    // public ResponseEntity<UserResponse> getUserById(@PathVariable Long id) {
+    //     return ResponseEntity.ok(
+    //             userService.getUser(id)
+    //     );
+    // }
 
 }
