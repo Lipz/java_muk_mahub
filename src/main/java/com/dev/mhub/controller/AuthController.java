@@ -10,11 +10,11 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.http.HttpStatus;
 
 import com.dev.mhub.dto.user.AuthResponse;
+import com.dev.mhub.dto.user.LDAPLoginRequest;
 import com.dev.mhub.dto.user.UserLoginRequest;
 import com.dev.mhub.dto.user.UserRegisterRequest;
 import com.dev.mhub.dto.user.UserResponse;
 import com.dev.mhub.services.AuthService;
-import com.dev.mhub.services.UserService;
 
 import jakarta.validation.Valid;
 
@@ -33,6 +33,13 @@ public class AuthController {
         AuthResponse auth = authService.login(user);
         return ResponseEntity.status(HttpStatus.OK).body(auth);
     }
+
+    @PostMapping("/ldap")
+    public ResponseEntity<AuthResponse> LDAPLogin(@Valid @RequestBody LDAPLoginRequest request){
+        AuthResponse response = authService.ldapLogin(request);
+        return ResponseEntity.ok(response);
+    }
+
 
     @PostMapping("/register")
     public ResponseEntity<UserResponse> Register(@Valid @RequestBody UserRegisterRequest user) {

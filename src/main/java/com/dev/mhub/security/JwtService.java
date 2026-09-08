@@ -10,7 +10,10 @@ import com.dev.mhub.entity.User;
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
+
+import java.time.Instant;
 import java.util.Date;
+import java.util.Map;
 
 @Service
 public class JwtService {
@@ -43,6 +46,18 @@ public class JwtService {
                 .compact();
     }
 
+
+    public String generateToken(String subject, Map<String, Object> claims){
+        Instant now = Instant.now();
+        return Jwts.builder()
+            .setSubject(subject)
+            .setClaims(claims)
+            .setIssuedAt(Date.from(now))
+            .setExpiration(Date.from(now.plusMillis(expirationMs)))
+            .signWith(key)
+            .compact();
+    }
+    
     public Claims parseClaims(String token) {
         return Jwts.parserBuilder().setSigningKey(key)
                                 .requireIssuer(issuer)
