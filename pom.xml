@@ -87,10 +87,10 @@
 			<version>0.11.5</version>
 			<scope>runtime</scope>
 		</dependency>
-        <!-- Core Spring Security -->
+        <!-- Redis Pub/Sub Support -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-security</artifactId>
+            <artifactId>spring-boot-starter-data-redis</artifactId>
         </dependency>
 
         <!-- Spring Security LDAP Integration -->
