@@ -1,0 +1,25 @@
+2026-09-18T11:56:04.525604+07:00
+Thread 1 advanced to log sequence 79589 (LGWR switch)
+  Current log# 2 seq# 79589 mem# 0: /u01/app/oracle/oradata/ecusstby/redo02.log
+ARC2 (PID:11494): Archived Log entry 79588 added for T-1.S-79588 ID 0x3f14c51f LAD:1
+2026-09-18T11:56:04.519765+07:00
+Thread 1 advanced to log sequence 79590 (LGWR switch)
+ARC3 (PID:11496): Archived Log entry 79589 added for T-1.S-79589 ID 0x3f14c51f LAD:1
+2026-09-18T13:58:04.793187+07:00
+2026-09-18T13:58:04.748346+07:00
+  Current log# 3 seq# 79590 mem# 0: /u01/app/oracle/oradata/ecusstby/redo03.log
+Thread 1 advanced to log sequence 79591 (LGWR switch)
+ARC0 (PID:11484): Archived Log entry 79590 added for T-1.S-79590 ID 0x3f14c51f LAD:1
+2026-09-18T13:59:49.219266+07:00
+  Current log# 4 seq# 79591 mem# 0: /u01/redo_04.log
+2026-09-18T13:59:49.211937+07:00
+2026-09-18T14:00:20.106292+07:00
+ARC1 (PID:11490): Archived Log entry 79591 added for T-1.S-79591 ID 0x3f14c51f LAD:1
+2026-09-18T14:00:20.120938+07:00
+Thread 1 advanced to log sequence 79592 (LGWR switch)
+  Current log# 1 seq# 79592 mem# 0: /u01/app/oracle/oradata/ecusstby/redo01.log
+  Current log# 2 seq# 79593 mem# 0: /u01/app/oracle/oradata/ecusstby/redo02.log
+2026-09-18T15:06:59.896059+07:00
+Thread 1 advanced to log sequence 79593 (LGWR switch)
+2026-09-18T15:06:59.985700+07:00
+ARC2 (PID:11494): Archived Log entry 79592 added for T-1.S-79592 ID 0x3f14c51f LAD:1
