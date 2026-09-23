@@ -1,26 +1,283 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+/* ---------------------------------------------------------------
+   Node Monitor design tokens
+   Imported from the "Admin monitoring dashboard mockups" design
+   (_ds/industry-…/styles.css :root block). Kept as CSS variables and
+   re-exported through @theme so Tailwind utilities can reach them.
+   --------------------------------------------------------------- */
+:root {
+  --font-heading: "Segoe UI", "Segoe UI Web (West European)",
+    "Segoe UI Variable Display", system-ui, "Helvetica Neue", sans-serif;
+  --font-body: "Segoe UI", "Segoe UI Web (West European)",
+    "Segoe UI Variable Text", system-ui, "Helvetica Neue", sans-serif;
+
+  --color-bg: #ffffff;
+  --color-text: #1b1b1f;
+  --color-divider: #dfe3ea;
+  --color-chrome: #f3f6fb;
+
+  --color-accent: oklch(0.52 0.135 254);
+  --color-accent-100: oklch(0.968 0.018 254);
+  --color-accent-200: oklch(0.925 0.038 254);
+  --color-accent-300: oklch(0.855 0.068 254);
+  --color-accent-400: oklch(0.69 0.11 254);
+  --color-accent-500: oklch(0.52 0.135 254);
+  --color-accent-600: oklch(0.465 0.128 254);
+  --color-accent-700: oklch(0.405 0.112 254);
+  --color-accent-800: oklch(0.325 0.09 254);
+  --color-accent-900: oklch(0.245 0.068 254);
+
+  /* Status tones, taken verbatim from the mockup's severity palette
+     (T.ok / T.warn / T.crit). Fluent-family colors that sit with Segoe UI. */
+  --color-ok: #107c41;
+  --color-warn: #b3600a;
+  --color-crit: #b3261e;
+
+  --color-neutral-100: #f5f5f8;
+  --color-neutral-800: #424244;
+
+  /* The mockup builds muted ink and hairlines by mixing the text colour
+     with transparency rather than using greys, which keeps everything
+     tinted consistently against the chrome. */
+  --ink-73: color-mix(in srgb, var(--color-text) 73%, transparent);
+  --ink-60: color-mix(in srgb, var(--color-text) 60%, transparent);
+  --ink-45: color-mix(in srgb, var(--color-text) 45%, transparent);
+  --ink-12: color-mix(in srgb, var(--color-text) 12%, transparent);
+  --ink-08: color-mix(in srgb, var(--color-text) 8%, transparent);
+
+  --shadow-sm: 0 1px 2px color-mix(in srgb, #2b2b2d 14%, transparent);
+  --shadow-md: 0 3px 10px color-mix(in srgb, #2b2b2d 16%, transparent);
+  --shadow-lg: 0 12px 32px color-mix(in srgb, #2b2b2d 22%, transparent);
+}
+
+@theme inline {
+  --font-heading: var(--font-heading);
+  --font-body: var(--font-body);
+  --color-ink: var(--color-text);
+  --color-divider: var(--color-divider);
+  --color-chrome: var(--color-chrome);
+  --color-accent: var(--color-accent);
+  --color-accent-100: var(--color-accent-100);
+  --color-accent-200: var(--color-accent-200);
+  --color-accent-300: var(--color-accent-300);
+  --color-accent-400: var(--color-accent-400);
+  --color-accent-500: var(--color-accent-500);
+  --color-accent-600: var(--color-accent-600);
+  --color-accent-700: var(--color-accent-700);
+  --color-accent-800: var(--color-accent-800);
+  --color-accent-900: var(--color-accent-900);
+  --color-ok: var(--color-ok);
+  --color-warn: var(--color-warn);
+  --color-crit: var(--color-crit);
+  --radius-box: 5px;
+
+  /* Legacy type roles, still used by the login form and the App/Web node
+     view. Dashboard components use the template's exact sizes instead
+     (text-[10.5px] etc.) so they can be checked line-for-line against
+     template/Node Monitor.html. */
+  --text-micro: 11px;   /* uppercase labels, table headers, tags, timestamps */
+  --text-micro--line-height: 1.35;
+  --text-meta: 12px;    /* secondary text: IPs, footnotes, table cells */
+  --text-meta--line-height: 1.4;
+  --text-body: 13px;    /* default reading text, primary cells, nav */
+  --text-body--line-height: 1.45;
+  --text-strong: 14px;  /* card titles, tabs, buttons, inputs */
+  --text-strong--line-height: 1.3;
+  --text-group: 16px;   /* system group headers */
+  --text-group--line-height: 1.25;
+  --text-section: 20px; /* section headings */
+  --text-section--line-height: 1.2;
+  --text-title: 24px;   /* page and dialog titles */
+  --text-title--line-height: 1.15;
+  --text-metric: 28px;  /* large tile numbers */
+  --text-metric--line-height: 1;
+}
+
+/* Base type from the template's design system (Industry styles.css):
+   15px/1.55 body, headings in the heading face at 1.12. Text the template
+   leaves unsized inherits this, so it matters for fidelity. Kept in the base
+   layer so utilities can still override it. */
+@layer base {
+  body {
+    background: var(--color-bg);
+    font-family: var(--font-body);
+    font-size: 15px;
+    line-height: 1.55;
+    color: var(--color-text);
+  }
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-heading);
+    font-weight: 600;
+    line-height: 1.12;
+    letter-spacing: -0.015em;
+    margin: 0 0 6.8px;
+  }
+  h1 { font-size: 42px; }
+  h2 { font-size: 32px; }
+  h3 { font-size: 25px; }
+  h4 { font-size: 20px; }
+  h5 { font-size: 16px; }
+  h6 { font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; }
+
+  :focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* Component classes live in the components layer: unlayered CSS would beat
+   every Tailwind utility, so a `p-0` or `text-[10px]` on a .btn or .table
+   cell would be silently ignored. */
+@layer components {
+  /* Tabular figures keep metric columns from jittering as values change. */
+  .mono {
+    font-family: var(--font-body);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .rowlink:hover {
+    background: color-mix(in srgb, var(--color-accent) 8%, transparent);
+  }
+
+  .pressable {
+    cursor: pointer;
+    user-select: none;
+  }
+  .pressable:hover {
+    background: color-mix(in srgb, var(--color-accent) 10%, transparent);
+  }
+
+  /* Dark log panel scroller. */
+  .logscroll { overflow: auto; }
+  .logscroll::-webkit-scrollbar { width: 8px; }
+  .logscroll::-webkit-scrollbar-thumb { background: color-mix(in srgb, #f2f2f3 22%, transparent); border-radius: 999px; }
+
+  /* Uppercase-header data table used across the dashboard. */
+  .table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+  }
+  .table th {
+    text-align: left;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-60);
+    padding: 6.8px;
+    border-bottom: 1px solid var(--color-divider);
+  }
+  .table td {
+    padding: 6.8px;
+    border-bottom: 1px solid var(--ink-08);
+  }
+  .table tbody tr:hover {
+    background: color-mix(in srgb, var(--color-text) 4%, transparent);
+  }
+
+  /* Form input from the design system: square, hairline, 36px tall. */
+  .input {
+    width: 100%;
+    min-height: 36px;
+    padding: 6px 10px;
+    font: inherit;
+    font-size: 14px;
+    color: var(--color-text);
+    caret-color: var(--color-accent);
+    background: var(--color-bg);
+    border: 1px solid var(--color-divider);
+  }
+  .input:hover {
+    border-color: color-mix(in srgb, var(--color-text) 45%, transparent);
+  }
+  .input:focus-visible {
+    border-color: var(--color-accent);
+    outline-offset: 0;
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    cursor: pointer;
+    font-family: var(--font-heading);
+    font-weight: 600;
+    font-size: 14px;
+    line-height: 1.2;
+    color: var(--color-text);
+    background: transparent;
+    border: 1px solid var(--color-divider);
+    padding: 6.8px 12.24px;
+  }
+  .btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+  .btn-primary {
+    background: var(--color-accent);
+    border-color: var(--color-accent);
+    color: #ffffff;
+  }
+  .btn-primary:hover {
+    background: var(--color-accent-600);
+  }
+  .btn-secondary:hover {
+    background: color-mix(in srgb, var(--color-text) 7%, transparent);
+  }
+  .btn-ghost {
+    border-color: transparent;
+    color: var(--color-accent);
+    padding-inline: 3.4px;
+  }
+  .btn-ghost:hover {
+    background: color-mix(in srgb, var(--color-accent) 10%, transparent);
+  }
+  .btn-icon {
+    width: 36px;
+    height: 36px;
+    padding: 0;
+  }
+
+  /* Tags, as used under the log tail. */
+  .tag {
+    display: inline-flex;
+    align-items: center;
+    font-size: 11px;
+    letter-spacing: 0.02em;
+    padding: 3px 10px;
+  }
+  .tag-neutral { background: var(--color-neutral-100); color: var(--color-neutral-800); }
+  .tag-outline { border: 1px solid var(--color-accent); color: var(--color-accent); }
+
+  /* Registration-mark frame ("blueprint") used on dialogs and log panels. */
+  .blueprint {
+    position: relative;
+    border: 1px solid var(--color-divider);
+  }
+  .blueprint > .corner {
+    position: absolute;
+    width: 11px;
+    height: 11px;
+    color: color-mix(in srgb, var(--color-text) 55%, transparent);
+  }
+  .blueprint > .corner::before,
+  .blueprint > .corner::after {
+    content: "";
+    position: absolute;
+    background: currentColor;
+  }
+  .blueprint > .corner::before { left: 5px; top: 0; width: 1px; height: 100%; }
+  .blueprint > .corner::after { top: 5px; left: 0; width: 100%; height: 1px; }
+  .blueprint > .corner.tl { top: -6px; left: -6px; }
+  .blueprint > .corner.tr { top: -6px; right: -6px; }
+  .blueprint > .corner.bl { bottom: -6px; left: -6px; }
+  .blueprint > .corner.br { bottom: -6px; right: -6px; }
 }

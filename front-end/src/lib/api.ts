@@ -20,7 +20,7 @@ const extractMessage = (body: unknown, status: number) : string => {
     if(body && typeof body == "object"){
         const data = body as Record<string, unknown>;
         for (const key of ["message", "error", "detail", "title"]) { 
-            if (typeof data[key] === "string" && data["key"]) return data["key"] as string;
+            if (typeof data[key] === "string" && data[key]) return data[key] as string;
         }
 
         if(Array.isArray(data.error) && data.error.length) {

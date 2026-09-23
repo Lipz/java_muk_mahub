@@ -1,6 +1,6 @@
 package com.dev.monitor.entity.user;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import org.hibernate.annotations.CreationTimestamp;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -35,7 +35,7 @@ public class User {
     private Boolean isAdmin;
 
     @CreationTimestamp
-    private LocalDateTime createdAt;
+    private Instant createdAt;
 
     public User() {
     }
@@ -96,11 +96,11 @@ public class User {
         isAdmin = admin;
     }
 
-    public LocalDateTime getCreatedAt() {
+    public Instant getCreatedAt() {
         return createdAt;
     }
 
-    public void setCreatedAt(LocalDateTime createdAt) {
+    public void setCreatedAt(Instant createdAt) {
         this.createdAt = createdAt;
     }
 }

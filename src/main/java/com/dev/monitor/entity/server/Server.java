@@ -18,7 +18,7 @@ import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 import org.hibernate.annotations.CreationTimestamp;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -55,18 +55,22 @@ public class Server {
     @Column(name = "server_type", nullable = false, length = 20)
     private ServerType serverType;
 
+    /** Free-text note; optional, so never assume it is present. */
+    @Column(name = "description", length = 500)
+    private String description;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
-    private LocalDateTime createdAt;
+    private Instant createdAt;
 
     @OneToMany(mappedBy = "server", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<ServerLog> logs = new ArrayList<>();
 
-    @OneToMany(mappedBy = "server", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<ServerResource> resources = new ArrayList<>();
-
-    @OneToMany(mappedBy = "server", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<ServerStorage> storages = new ArrayList<>();
+    // No collections for ServerResource / ServerStorage on purpose. Those are
+    // hypertable-backed time series keyed on (server_id, record_timestamp):
+    // they have no @ManyToOne Server for mappedBy to bind to, and cascading a
+    // server delete through JPA would load every metric row into memory.
+    // init.sql handles that with ON DELETE CASCADE in the database instead.
 
     public Server() {
     }
@@ -118,11 +122,19 @@ public class Server {
         this.serverType = serverType;
     }
 
-    public LocalDateTime getCreatedAt() {
+    public String getDescription() {
+        return description;
+    }
+
+    public void setDescription(String description) {
+        this.description = description;
+    }
+
+    public Instant getCreatedAt() {
         return createdAt;
     }
 
-    public void setCreatedAt(LocalDateTime createdAt) {
+    public void setCreatedAt(Instant createdAt) {
         this.createdAt = createdAt;
     }
 
@@ -134,19 +146,4 @@ public class Server {
         this.logs = logs;
     }
 
-    public List<ServerResource> getResources() {
-        return resources;
-    }
-
-    public void setResources(List<ServerResource> resources) {
-        this.resources = resources;
-    }
-
-    public List<ServerStorage> getStorages() {
-        return storages;
-    }
-
-    public void setStorages(List<ServerStorage> storages) {
-        this.storages = storages;
-    }
 }

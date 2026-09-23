@@ -1,13 +1,15 @@
 package com.dev.monitor.redis;
 
 import com.dev.monitor.services.LogFileWriterService;
+import com.dev.monitor.services.ServerResourceWriterService;
+import com.dev.monitor.services.ServerStorageWriterService;
+import java.nio.charset.StandardCharsets;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.redis.connection.Message;
 import org.springframework.data.redis.connection.MessageListener;
 import org.springframework.stereotype.Service;
 
-import java.nio.charset.StandardCharsets;
 
 @Service
 public class RedisMessageSubscriber implements MessageListener {
@@ -20,9 +22,15 @@ public class RedisMessageSubscriber implements MessageListener {
     public static final String DOCKER_CHANNEL_PREFIX = "docker-";
 
     private final LogFileWriterService logFileWriterService;
+    private final ServerResourceWriterService serverResourceWriterService;
+    private final ServerStorageWriterService serverStorageWriterService;
 
-    public RedisMessageSubscriber(LogFileWriterService logFileWriterService) {
+    public RedisMessageSubscriber(LogFileWriterService logFileWriterService,
+                                  ServerResourceWriterService serverResourceWriterService,
+                                  ServerStorageWriterService serverStorageWriterService) {
         this.logFileWriterService = logFileWriterService;
+        this.serverResourceWriterService = serverResourceWriterService;
+        this.serverStorageWriterService = serverStorageWriterService;
     }
 
     @Override
@@ -37,11 +45,11 @@ public class RedisMessageSubscriber implements MessageListener {
             // Asynchronously append log line to /logs/{server}/{channel}/{yyyy-MM-dd.log}
             logFileWriterService.writeLogAsync(channel, body);
         } else if (channel.startsWith(STORAGE_CHANNEL_PREFIX)) {
-            // Placeholder for storage metrics handler
-            log.debug("Received storage channel message on [{}], handler pending implementation", channel);
+            // Fan out to server_storage (per mount) + server_storage_summary
+            serverStorageWriterService.writeStorageAsync(channel, body);
         } else if (channel.startsWith(RESOURCE_CHANNEL_PREFIX)) {
-            // Placeholder for resource metrics handler
-            log.debug("Received resource channel message on [{}], handler pending implementation", channel);
+            // Buffer into the server_resources hypertable; flushed as a JDBC batch
+            serverResourceWriterService.writeResourceAsync(channel, body);
         } else if (channel.startsWith(DOCKER_CHANNEL_PREFIX)) {
             // Placeholder for docker metrics handler
             log.debug("Received docker channel message on [{}], handler pending implementation", channel);

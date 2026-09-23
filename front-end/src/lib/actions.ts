@@ -1,9 +1,10 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { refresh } from "next/cache";
 import { ApiError, apiRequest } from "./api";
-import { createSession, destroySession } from "./session";
-import type { ActionState, LoginResponse, UserResponse } from "./types";
+import { createSession, destroySession, getToken } from "./session";
+import type { ActionState, AddServerState, LoginResponse, ServerType, UserResponse } from "./types";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -86,4 +87,46 @@ export async function loginAction(
 export async function logoutAction() {
   await destroySession();
   redirect("/login");
+}
+
+const IPV4_RE = /^(\d{1,3}\.){3}\d{1,3}$/;
+const SERVER_TYPES: ServerType[] = ["APP", "WEB", "DATABASE"];
+
+export async function createServerAction(
+  _prev: AddServerState,
+  formData: FormData,
+): Promise<AddServerState> {
+  const name = String(formData.get("name") ?? "").trim();
+  const ip = String(formData.get("ip") ?? "").trim();
+  const serverType = String(formData.get("serverType") ?? "");
+  const systemId = String(formData.get("systemId") ?? "");
+  const description = String(formData.get("description") ?? "").trim();
+
+  const values = { name, ip, serverType, systemId, description };
+
+  if (!name) return { error: "Hostname required.", values };
+  if (!ip) return { error: "IP address required.", values };
+  if (!IPV4_RE.test(ip) || ip.split(".").some((o) => +o > 255))
+    return { error: "Enter a valid IPv4 address, e.g. 10.42.8.46.", values };
+  if (!SERVER_TYPES.includes(serverType as ServerType))
+    return { error: "Pick a node type.", values };
+  if (!systemId) return { error: "Pick the system this node belongs to.", values };
+
+  const token = await getToken();
+  if (!token) redirect("/login");
+
+  try {
+    await apiRequest("/api/v1/servers", {
+      method: "POST",
+      token,
+      body: JSON.stringify({ systemId, name, ip, serverType, description: description || null }),
+    });
+  } catch (err) {
+    if (err instanceof ApiError) return { error: err.message, values };
+    throw err;
+  }
+
+  // Re-render the fleet so the new node shows up behind the closing dialog.
+  refresh();
+  return { ok: true };
 }

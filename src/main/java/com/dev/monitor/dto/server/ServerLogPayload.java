@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
 public record ServerLogPayload(
+    String serverId,
     String systemId,
     String systemName,
     String serverName,

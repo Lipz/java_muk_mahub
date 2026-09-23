@@ -35,6 +35,7 @@ import com.dev.monitor.security.AdUserDetails;
 import com.dev.monitor.security.AppUserDetailsService;
 import com.dev.monitor.security.JwtAuthenticationFilter;
 
+import jakarta.servlet.DispatcherType;
 import jakarta.servlet.http.HttpServletResponse;
 
 @Configuration
@@ -131,6 +132,9 @@ public class SecurityConfig {
             .csrf(AbstractHttpConfigurer::disable)
             .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
+                // The JWT filter only runs on the first dispatch; an SSE stream completing
+                // re-dispatches as ASYNC, already authorized, and would otherwise get a 401
+                .dispatcherTypeMatchers(DispatcherType.ASYNC).permitAll()
                 .requestMatchers("/api/auth/**", "/error").permitAll()
                 .requestMatchers("/api/admin/**").hasRole("ADMIN")
                 .anyRequest().authenticated())

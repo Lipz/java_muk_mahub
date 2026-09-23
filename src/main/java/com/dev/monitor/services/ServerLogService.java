@@ -45,6 +45,38 @@ public class ServerLogService {
         return ServerLogResponse.fromEntity(saved);
     }
 
+    /**
+     * Resolve the log channel registered for a server, creating it when it does not exist yet.
+     * Returns empty when the server UUID is unknown.
+     */
+    @Transactional
+    public Optional<ServerLog> resolveOrCreateChannel(String serverUuid, String channel, String pubPath) {
+        Optional<Server> server = serverRepository.findById(serverUuid);
+        if (server.isEmpty()) {
+            return Optional.empty();
+        }
+
+        Optional<ServerLog> existing = serverLogRepository.findByServerUuidAndChannel(serverUuid, channel);
+        if (existing.isPresent()) {
+            return existing;
+        }
+
+        Server s = server.get();
+        String savePath = "logs/" + sanitize(s.getName(), "unknown_server") + "/" + sanitize(channel, "unknown_channel");
+        String safePubPath = (pubPath == null || pubPath.isBlank()) ? "-" : pubPath;
+        return Optional.of(serverLogRepository.saveAndFlush(new ServerLog(s, channel, safePubPath, savePath)));
+    }
+
+    @Transactional(readOnly = true)
+    public Optional<ServerLog> findChannel(String logUuid) {
+        return serverLogRepository.findByIdWithServer(logUuid);
+    }
+
+    @Transactional(readOnly = true)
+    public List<ServerLog> getAllChannels() {
+        return serverLogRepository.findAllWithServer();
+    }
+
     @Transactional(readOnly = true)
     public List<ServerLogResponse> getLogs(String serverIdentifier) {
         if (serverIdentifier != null && !serverIdentifier.isBlank()) {

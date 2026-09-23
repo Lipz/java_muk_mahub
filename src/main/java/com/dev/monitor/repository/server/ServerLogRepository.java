@@ -14,6 +14,9 @@ public interface ServerLogRepository extends JpaRepository<ServerLog, String> {
     @Query("SELECT sl FROM ServerLog sl JOIN FETCH sl.server WHERE sl.server.uuid = :serverUuid")
     List<ServerLog> findByServerUuid(@Param("serverUuid") String serverUuid);
 
+    @Query("SELECT sl FROM ServerLog sl JOIN FETCH sl.server WHERE sl.uuid = :uuid")
+    Optional<ServerLog> findByIdWithServer(@Param("uuid") String uuid);
+
     @Query("SELECT sl FROM ServerLog sl JOIN FETCH sl.server")
     List<ServerLog> findAllWithServer();
 

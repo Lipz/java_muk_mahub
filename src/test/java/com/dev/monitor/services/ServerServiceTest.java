@@ -4,8 +4,12 @@ import com.dev.monitor.dto.server.ServerGroupResponse;
 import com.dev.monitor.entity.server.Server;
 import com.dev.monitor.entity.server.ServerType;
 import com.dev.monitor.entity.system.SystemEntity;
+import com.dev.monitor.exception.server.ServerNotFoundException;
 import com.dev.monitor.exception.system.SystemNotFoundException;
 import com.dev.monitor.repository.server.ServerRepository;
+import com.dev.monitor.repository.server.ServerResourceRepository;
+import com.dev.monitor.repository.server.ServerStorageRepository;
+import com.dev.monitor.repository.server.ServerStorageSummaryRepository;
 import com.dev.monitor.repository.system.SystemRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -18,6 +22,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -28,6 +33,18 @@ class ServerServiceTest {
 
     @Mock
     private SystemRepository systemRepository;
+
+    @Mock
+    private ServerPresenceService presenceService;
+
+    @Mock
+    private ServerStorageSummaryRepository storageSummaryRepository;
+
+    @Mock
+    private ServerStorageRepository storageRepository;
+
+    @Mock
+    private ServerResourceRepository resourceRepository;
 
     @InjectMocks
     private ServerService serverService;
@@ -120,5 +137,36 @@ class ServerServiceTest {
         when(systemRepository.findById("invalid-id")).thenReturn(Optional.empty());
 
         assertThrows(SystemNotFoundException.class, () -> serverService.getAllServers("invalid-id"));
+    }
+
+    @Test
+    void shouldBucketHistoryIntoThirtyPoints() {
+        when(serverRepository.existsById("srv-01")).thenReturn(true);
+        when(resourceRepository.findHistory(eq("srv-01"), any(), anyInt())).thenReturn(List.of());
+
+        serverService.getResourceHistory("srv-01", 60);
+
+        verify(resourceRepository).findHistory(eq("srv-01"), any(), eq(120));
+    }
+
+    @Test
+    void shouldClampHistoryWindow() {
+        when(serverRepository.existsById("srv-01")).thenReturn(true);
+        when(resourceRepository.findHistory(eq("srv-01"), any(), anyInt())).thenReturn(List.of());
+
+        serverService.getResourceHistory("srv-01", 1);
+        serverService.getResourceHistory("srv-01", 1_000_000);
+
+        // 5 minutes minimum -> 10s buckets; 24 hours maximum -> 48m buckets
+        verify(resourceRepository).findHistory(eq("srv-01"), any(), eq(10));
+        verify(resourceRepository).findHistory(eq("srv-01"), any(), eq(2880));
+    }
+
+    @Test
+    void shouldThrowWhenHistoryServerNotFound() {
+        when(serverRepository.existsById("missing")).thenReturn(false);
+
+        assertThrows(ServerNotFoundException.class, () -> serverService.getResourceHistory("missing", 60));
+        verifyNoInteractions(resourceRepository);
     }
 }

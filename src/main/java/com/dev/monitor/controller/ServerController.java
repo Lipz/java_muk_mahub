@@ -1,5 +1,6 @@
 package com.dev.monitor.controller;
 
+import com.dev.monitor.dto.server.ResourcePoint;
 import com.dev.monitor.dto.server.ServerCreateRequest;
 import com.dev.monitor.dto.server.ServerGroupResponse;
 import com.dev.monitor.dto.server.ServerResponse;
@@ -43,5 +44,13 @@ public class ServerController {
     public ResponseEntity<ServerResponse> getServerById(@PathVariable String uuid) {
         ServerResponse server = serverService.getServerById(uuid);
         return ResponseEntity.ok(server);
+    }
+
+    /** Averaged CPU / memory / network history for the node page sparklines. */
+    @GetMapping("/{uuid}/resources/history")
+    public ResponseEntity<List<ResourcePoint>> getResourceHistory(
+            @PathVariable String uuid,
+            @RequestParam(defaultValue = "60") int minutes) {
+        return ResponseEntity.ok(serverService.getResourceHistory(uuid, minutes));
     }
 }

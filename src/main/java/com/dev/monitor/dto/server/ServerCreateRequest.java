@@ -18,5 +18,14 @@ public record ServerCreateRequest(
     String ip,
 
     @NotNull(message = "Server type is required")
-    ServerType serverType
-) {}
+    ServerType serverType,
+
+    // Optional: no @NotBlank, so omitting it or sending null is valid.
+    @Size(max = 500, message = "Description must not exceed 500 characters")
+    String description
+) {
+    /** Keeps callers that predate the description field compiling. */
+    public ServerCreateRequest(String systemId, String name, String ip, ServerType serverType) {
+        this(systemId, name, ip, serverType, null);
+    }
+}

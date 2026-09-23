@@ -1,6 +1,8 @@
 package com.dev.monitor.redis;
 
 import com.dev.monitor.services.LogFileWriterService;
+import com.dev.monitor.services.ServerResourceWriterService;
+import com.dev.monitor.services.ServerStorageWriterService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -23,11 +25,18 @@ class RedisMessageSubscriberTest {
     @Mock
     private LogFileWriterService logFileWriterService;
 
+    @Mock
+    private ServerResourceWriterService serverResourceWriterService;
+
+    @Mock
+    private ServerStorageWriterService serverStorageWriterService;
+
     private RedisMessageSubscriber subscriber;
 
     @BeforeEach
     void setUp() {
-        subscriber = new RedisMessageSubscriber(logFileWriterService);
+        subscriber = new RedisMessageSubscriber(
+                logFileWriterService, serverResourceWriterService, serverStorageWriterService);
     }
 
     @Test
@@ -45,19 +54,59 @@ class RedisMessageSubscriberTest {
         subscriber.onMessage(message, null);
 
         verify(logFileWriterService).writeLogAsync(channel, body);
+        verify(serverResourceWriterService, never()).writeResourceAsync(anyString(), anyString());
+        verify(serverStorageWriterService, never()).writeStorageAsync(anyString(), anyString());
     }
 
     @Test
-    void shouldNotRouteStorageResourceDockerOrUnknownChannelsToLogFileWriter() {
-        String[] nonLogChannels = {
-                "storage-disk-01",
-                "resource-cpu-01",
+    void shouldRouteResourceChannelToResourceWriterService() {
+        String channel = "resource-info";
+        String body = "{\"serverId\":\"srv-01\",\"timestamp\":\"2026-09-22T04:06:23Z\"}";
+        Message message = new DefaultMessage(
+                channel.getBytes(StandardCharsets.UTF_8),
+                body.getBytes(StandardCharsets.UTF_8)
+        );
+
+        when(serverResourceWriterService.writeResourceAsync(channel, body))
+                .thenReturn(CompletableFuture.completedFuture(null));
+
+        subscriber.onMessage(message, null);
+
+        verify(serverResourceWriterService).writeResourceAsync(channel, body);
+        verify(logFileWriterService, never()).writeLogAsync(anyString(), anyString());
+        verify(serverStorageWriterService, never()).writeStorageAsync(anyString(), anyString());
+    }
+
+    @Test
+    void shouldRouteStorageChannelToStorageWriterService() {
+        String channel = "storage-info";
+        String body = "{\"serverId\":\"srv-01\",\"mounts\":[{\"path\":\"/\"}]}";
+        Message message = new DefaultMessage(
+                channel.getBytes(StandardCharsets.UTF_8),
+                body.getBytes(StandardCharsets.UTF_8)
+        );
+
+        when(serverStorageWriterService.writeStorageAsync(channel, body))
+                .thenReturn(CompletableFuture.completedFuture(null));
+
+        subscriber.onMessage(message, null);
+
+        verify(serverStorageWriterService).writeStorageAsync(channel, body);
+        verify(logFileWriterService, never()).writeLogAsync(anyString(), anyString());
+        verify(serverResourceWriterService, never()).writeResourceAsync(anyString(), anyString());
+    }
+
+    @Test
+    void shouldNotRouteDockerOrUnknownChannelsToAnyWriter() {
+        // docker- has no handler yet; system-alert and logs:app match no
+        // prefix at all.
+        String[] unhandledChannels = {
                 "docker-container-01",
                 "system-alert",
                 "logs:app"
         };
 
-        for (String channel : nonLogChannels) {
+        for (String channel : unhandledChannels) {
             Message message = new DefaultMessage(
                     channel.getBytes(StandardCharsets.UTF_8),
                     "test-body".getBytes(StandardCharsets.UTF_8)
@@ -66,5 +115,7 @@ class RedisMessageSubscriberTest {
         }
 
         verify(logFileWriterService, never()).writeLogAsync(anyString(), anyString());
+        verify(serverResourceWriterService, never()).writeResourceAsync(anyString(), anyString());
+        verify(serverStorageWriterService, never()).writeStorageAsync(anyString(), anyString());
     }
 }

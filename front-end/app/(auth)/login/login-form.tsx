@@ -68,7 +68,7 @@ export default function LoginForm() {
 
         <div className="my-5 flex items-center gap-2.5">
           <div className="h-px flex-1 bg-neutral-200" />
-          <span className="text-[10.5px] tracking-[0.1em] text-neutral-400 uppercase">
+          <span className="text-micro tracking-[0.1em] text-neutral-400 uppercase">
             or
           </span>
           <div className="h-px flex-1 bg-neutral-200" />
