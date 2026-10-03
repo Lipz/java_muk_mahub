@@ -124,8 +124,12 @@ const MEM_WARN = 80;
 const MEM_CRIT = 90;
 const CPU_WARN = 80;
 const CPU_CRIT = 90;
-/** Buckets averaged for the CPU alert — ~10 minutes at the default 2-minute bucket. */
-const CPU_WINDOW = 5;
+/**
+ * The CPU alert averages the points of this trailing span, measured back from
+ * the newest one — by time, not point count, so it means the same whatever
+ * the history's bucket size.
+ */
+const CPU_SUSTAINED_MS = 3 * 60_000;
 
 /**
  * CPU and memory alerts for the node page.
@@ -146,7 +150,10 @@ export function resourceAlerts(res: ResourceSnapshot | null, history: ResourcePo
       observed: formatAgo(res.recordedAt),
     });
   }
-  const recent = (history ?? []).slice(-CPU_WINDOW).flatMap((p) => (p.cpuPct == null ? [] : [p.cpuPct]));
+  const newest = history?.length ? new Date(history[history.length - 1].t).getTime() : 0;
+  const recent = (history ?? []).flatMap((p) =>
+    p.cpuPct == null || new Date(p.t).getTime() < newest - CPU_SUSTAINED_MS ? [] : [p.cpuPct],
+  );
   if (recent.length) {
     const avg = recent.reduce((a, v) => a + v, 0) / recent.length;
     if (avg >= CPU_WARN) {

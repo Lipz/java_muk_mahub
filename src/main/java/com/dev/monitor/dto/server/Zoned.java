@@ -14,12 +14,12 @@ import java.time.ZoneId;
  * instant. Dropping it would leave a wall-clock string that any client
  * outside the display zone would silently misread.
  */
-final class Zoned {
+public final class Zoned {
 
     private Zoned() {
     }
 
-    static OffsetDateTime at(Instant instant, ZoneId zone) {
+    public static OffsetDateTime at(Instant instant, ZoneId zone) {
         return instant == null ? null : instant.atZone(zone).toOffsetDateTime();
     }
 }

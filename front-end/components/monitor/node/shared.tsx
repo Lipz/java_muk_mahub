@@ -148,36 +148,59 @@ export type Spark = {
   points: { at: number; v: number }[];
   from: number;
   to: number;
-  /** Top of the scale: 100 for percentages, the series peak for rates. */
+  /** Top of the scale. */
   max: number;
+  /** Bottom of the scale; 0 when omitted. */
+  min?: number;
+  /** Points further apart than this (ms) are not joined: the agent was silent in between. */
+  gapMs?: number;
 };
 
 const SPARK_W = 180;
 const SPARK_H = 44;
 
-/** The template's tile sparkline: accent line over a 14% area fill. */
+/**
+ * The template's tile sparkline: accent line over a 14% area fill. The line
+ * breaks where reporting stopped, rather than sloping across the silence.
+ */
 function Sparkline({ spark }: { spark: Spark }) {
   const span = Math.max(1, spark.to - spark.from);
-  const max = spark.max > 0 ? spark.max : 1;
-  const xy = spark.points.map((p) => {
-    const x = ((p.at - spark.from) / span) * SPARK_W;
-    const y = SPARK_H - (Math.min(max, Math.max(0, p.v)) / max) * SPARK_H;
-    return `${x.toFixed(1)},${y.toFixed(1)}`;
-  });
-  const first = xy[0]?.split(",")[0] ?? "0";
-  const last = xy[xy.length - 1]?.split(",")[0] ?? String(SPARK_W);
+  const min = spark.min ?? 0;
+  const max = spark.max > min ? spark.max : min + 1;
+  const runs: Spark["points"][] = [];
+  for (const p of spark.points) {
+    const run = runs[runs.length - 1];
+    const prev = run?.[run.length - 1];
+    if (!prev || (spark.gapMs != null && p.at - prev.at > spark.gapMs)) runs.push([p]);
+    else run.push(p);
+  }
+  const x = (at: number) => (((at - spark.from) / span) * SPARK_W).toFixed(1);
+  const y = (v: number) => (SPARK_H - ((Math.min(max, Math.max(min, v)) - min) / (max - min)) * SPARK_H).toFixed(1);
   return (
     <svg viewBox={`0 0 ${SPARK_W} ${SPARK_H}`} preserveAspectRatio="none" className="block h-[44px] w-full" aria-hidden>
-      <polygon points={`${first},${SPARK_H} ${xy.join(" ")} ${last},${SPARK_H}`} fill="color-mix(in srgb, #5980a6 14%, transparent)" />
-      <polyline points={xy.join(" ")} fill="none" stroke="#5980a6" strokeWidth="1.4" vectorEffect="non-scaling-stroke" />
+      {runs
+        .filter((run) => run.length >= 2)
+        .map((run) => {
+          const xy = run.map((p) => `${x(p.at)},${y(p.v)}`).join(" ");
+          return (
+            <g key={run[0].at}>
+              <polygon
+                points={`${x(run[0].at)},${SPARK_H} ${xy} ${x(run[run.length - 1].at)},${SPARK_H}`}
+                fill="color-mix(in srgb, #5980a6 14%, transparent)"
+              />
+              <polyline points={xy} fill="none" stroke="#5980a6" strokeWidth="1.4" vectorEffect="non-scaling-stroke" />
+            </g>
+          );
+        })}
     </svg>
   );
 }
 
 /**
- * Metric tile. Draws a sparkline when history is available (two or more
- * points), else a usage bar for fill-level metrics, else an empty slot of
- * the same height — never a made-up trend.
+ * Metric tile. With a `spark` it always draws the sparkline, even while it has
+ * too few points for a line — a live chart should not turn into a bar and back.
+ * Without one, a usage bar for fill-level metrics, else an empty slot of the
+ * same height — never a made-up trend.
  */
 export function Tile({
   label,
@@ -197,7 +220,7 @@ export function Tile({
   foot: string;
 }) {
   const fill = pct == null ? null : Math.min(100, Math.max(0, pct));
-  const hasSpark = spark != null && spark.points.length >= 2;
+  const hasSpark = spark != null;
   return (
     <div className="flex flex-col gap-1.5 rounded-[5px] border border-divider bg-white p-[13px] shadow-[var(--shadow-sm)]">
       <div className="flex items-baseline justify-between gap-2">

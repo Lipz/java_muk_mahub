@@ -2,11 +2,14 @@ import { notFound } from "next/navigation";
 import { fetchResourceHistory, fetchServer } from "@/src/lib/servers";
 import { ApiError } from "@/src/lib/api";
 import { Empty } from "@/components/monitor/indicators";
-import { APP_TABS, AppNodeView, HISTORY_MINUTES, type AppTab } from "@/components/monitor/node/app-node-view";
+import { APP_TABS, AppNodeView, type AppTab } from "@/components/monitor/node/app-node-view";
 import { DB_TABS, DbNodeView, type DbTab } from "@/components/monitor/node/db-node-view";
 import type { ResourceHistory, ServerDetail } from "@/src/lib/types";
 
 export const dynamic = "force-dynamic";
+
+/** The hub's shortest history window, and long enough for the CPU alert. */
+const HISTORY_MINUTES = 5;
 
 /**
  * Node detail. One route, two templates chosen by server type: databases get
@@ -17,9 +20,9 @@ export default async function NodePage(props: PageProps<"/dashboard/nodes/[uuid]
   const [{ uuid }, sp] = await Promise.all([props.params, props.searchParams]);
   const file = typeof sp.file === "string" ? sp.file : undefined;
 
-  // History only feeds the App/Web overview tiles, but the node type is not
-  // known until the node loads — fetch both at once rather than in series,
-  // and let a history failure degrade the sparklines, not the page.
+  // History feeds the CPU alert (3-minute average) and seeds the overview's
+  // live tiles, which show its last minute, until the stream's backfill arrives. Fetched alongside the node rather than after it,
+  // and a failure degrades the sparklines, not the page.
   const wantsHistory = sp.tab == null || sp.tab === "overview";
   const [nodeResult, history] = await Promise.all([
     fetchServer(uuid).then(
@@ -42,7 +45,7 @@ export default async function NodePage(props: PageProps<"/dashboard/nodes/[uuid]
 
   if (node.serverType === "DATABASE") {
     const tab = DB_TABS.find((t) => t.id === sp.tab)?.id ?? "overview";
-    return <DbNodeView node={node} tab={tab as DbTab} file={file} />;
+    return <DbNodeView node={node} tab={tab as DbTab} file={file} history={history} />;
   }
 
   const tab = APP_TABS.find((t) => t.id === sp.tab)?.id ?? "overview";

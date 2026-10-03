@@ -1,11 +1,14 @@
 package com.dev.monitor.services;
 
 import com.dev.monitor.dto.server.ServerResourcePayload;
+import com.dev.monitor.dto.server.ServerResponse;
+import com.dev.monitor.dto.server.Zoned;
 import com.dev.monitor.repository.server.ServerRepository;
 import jakarta.annotation.PreDestroy;
 import java.sql.Types;
 import java.time.Instant;
 import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
@@ -43,6 +46,9 @@ import tools.jackson.databind.ObjectMapper;
  * Unknown servers are cached with a TTL rather than retried per message,
  * mirroring LogFileWriterService -- the FK on server_id would otherwise
  * reject every row from an unregistered agent, once per message.
+ *
+ * Every accepted scrape is also published to ResourceStreamBroadcaster for
+ * the node page's live tiles, as the same converted values the row stores.
  */
 @Service
 public class ServerResourceWriterService {
@@ -80,6 +86,8 @@ public class ServerResourceWriterService {
     private final JdbcTemplate jdbcTemplate;
     private final ServerRepository serverRepository;
     private final ServerPresenceService presenceService;
+    private final ResourceStreamBroadcaster broadcaster;
+    private final ZoneId displayZone;
 
     private final ExecutorService parseExecutor = Executors.newVirtualThreadPerTaskExecutor();
     private final ScheduledExecutorService flusher =
@@ -101,11 +109,15 @@ public class ServerResourceWriterService {
     public ServerResourceWriterService(ObjectMapper objectMapper,
                                        JdbcTemplate jdbcTemplate,
                                        ServerRepository serverRepository,
-                                       ServerPresenceService presenceService) {
+                                       ServerPresenceService presenceService,
+                                       ResourceStreamBroadcaster broadcaster,
+                                       ZoneId displayZone) {
         this.objectMapper = objectMapper;
         this.jdbcTemplate = jdbcTemplate;
         this.serverRepository = serverRepository;
         this.presenceService = presenceService;
+        this.broadcaster = broadcaster;
+        this.displayZone = displayZone;
     }
 
     @EventListener(ApplicationReadyEvent.class)
@@ -148,8 +160,13 @@ public class ServerResourceWriterService {
         // The agent's own timestamp is when the sample was taken, which is the
         // honest value for a metric row. Fall back to receive time only if absent.
         Instant recordedAt = payload.timestamp() != null ? payload.timestamp() : Instant.now();
+        ServerResponse.Resources snapshot = toSnapshot(recordedAt, payload);
 
-        if (!pending.offer(toRow(serverId, recordedAt, payload))) {
+        // Before the batch, like presence: a viewer should see the scrape now,
+        // not after the next flush -- or not at all if the database is down.
+        broadcaster.publish(serverId, new ResourceStreamBroadcaster.Sample(recordedAt, snapshot));
+
+        if (!pending.offer(toRow(serverId, recordedAt, payload.uptimeSeconds(), snapshot))) {
             long total = dropped.incrementAndGet();
             if (total % 100 == 1) {
                 log.error("Resource ingest queue full ({} rows); dropped {} total. "
@@ -185,16 +202,19 @@ public class ServerResourceWriterService {
         return false;
     }
 
-    private static Object[] toRow(String serverId, Instant recordedAt, ServerResourcePayload p) {
+    /**
+     * The payload as stored: floats for percentages and load, rates rounded to
+     * whole bytes/sec. The row is built from this, so what the live stream
+     * shows is exactly what a later backfill reads back.
+     */
+    private ServerResponse.Resources toSnapshot(Instant recordedAt, ServerResourcePayload p) {
         ServerResourcePayload.Cpu cpu = p.cpu();
         ServerResourcePayload.Memory mem = p.memory();
         ServerResourcePayload.Swap swap = p.swap();
         ServerResourcePayload.Network net = p.network();
 
-        return new Object[]{
-                serverId,
-                OffsetDateTime.ofInstant(recordedAt, ZoneOffset.UTC),
-                p.uptimeSeconds(),
+        return new ServerResponse.Resources(
+                Zoned.at(recordedAt, displayZone),
 
                 cpu == null ? null : toShort(cpu.count()),
                 cpu == null ? null : toFloat(cpu.usedPercent()),
@@ -216,6 +236,19 @@ public class ServerResourceWriterService {
                 // meaningless and integers aggregate without float drift.
                 net == null ? null : toRoundedLong(net.rxBytesPerSec()),
                 net == null ? null : toRoundedLong(net.txBytesPerSec())
+        );
+    }
+
+    private static Object[] toRow(String serverId, Instant recordedAt, Long uptimeSeconds,
+                                  ServerResponse.Resources r) {
+        return new Object[]{
+                serverId,
+                OffsetDateTime.ofInstant(recordedAt, ZoneOffset.UTC),
+                uptimeSeconds,
+                r.cpuCount(), r.cpuPct(), r.load1(), r.load5(), r.load15(),
+                r.memTotalBytes(), r.memUsedBytes(), r.memAvailableBytes(), r.memUsedPct(), r.memEstimated(),
+                r.swapTotalBytes(), r.swapUsedBytes(), r.swapUsedPct(),
+                r.netRxBps(), r.netTxBps()
         };
     }
 

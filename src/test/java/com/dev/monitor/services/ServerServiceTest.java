@@ -1,7 +1,9 @@
 package com.dev.monitor.services;
 
+import com.dev.monitor.dto.server.ResourcePoint;
 import com.dev.monitor.dto.server.ServerGroupResponse;
 import com.dev.monitor.entity.server.Server;
+import com.dev.monitor.entity.server.ServerResource;
 import com.dev.monitor.entity.server.ServerType;
 import com.dev.monitor.entity.system.SystemEntity;
 import com.dev.monitor.exception.server.ServerNotFoundException;
@@ -18,6 +20,8 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.time.Instant;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
 
@@ -154,12 +158,32 @@ class ServerServiceTest {
         when(serverRepository.existsById("srv-01")).thenReturn(true);
         when(resourceRepository.findHistory(eq("srv-01"), any(), anyInt())).thenReturn(List.of());
 
-        serverService.getResourceHistory("srv-01", 1);
+        serverService.getResourceHistory("srv-01", 6);
         serverService.getResourceHistory("srv-01", 1_000_000);
 
-        // 5 minutes minimum -> 10s buckets; 24 hours maximum -> 48m buckets
-        verify(resourceRepository).findHistory(eq("srv-01"), any(), eq(10));
+        // 6 minutes -> 12s buckets; 24 hours maximum -> 48m buckets
+        verify(resourceRepository).findHistory(eq("srv-01"), any(), eq(12));
         verify(resourceRepository).findHistory(eq("srv-01"), any(), eq(2880));
+    }
+
+    @Test
+    void shouldReturnRawScrapesForShortWindows() {
+        when(serverRepository.existsById("srv-01")).thenReturn(true);
+        ServerResource scrape = new ServerResource("srv-01", Instant.parse("2026-09-25T04:55:30Z"));
+        scrape.setCpuUsagePct(2.5f);
+        when(resourceRepository.findByServerIdAndRecordTimestampGreaterThanEqualOrderByRecordTimestampAsc(
+                eq("srv-01"), any())).thenReturn(List.of(scrape));
+
+        // @InjectMocks has no display zone to give; rendering a timestamp needs one
+        ServerService service = new ServerService(serverRepository, systemRepository, presenceService,
+                storageSummaryRepository, storageRepository, resourceRepository, ZoneId.of("Asia/Phnom_Penh"));
+
+        // Below the 5-minute minimum: clamped to 5, still raw
+        List<ResourcePoint> points = service.getResourceHistory("srv-01", 1);
+
+        assertEquals(1, points.size());
+        assertEquals(2.5, points.get(0).cpuPct());
+        verify(resourceRepository, never()).findHistory(any(), any(), anyInt());
     }
 
     @Test

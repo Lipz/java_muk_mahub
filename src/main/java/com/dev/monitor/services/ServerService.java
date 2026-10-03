@@ -174,10 +174,16 @@ public class ServerService {
     static final int HISTORY_POINTS = 30;
     static final int HISTORY_MIN_MINUTES = 5;
     static final int HISTORY_MAX_MINUTES = 24 * 60;
+    /**
+     * Windows up to this long come back as raw scrapes instead: at a 3-5s scrape that is at
+     * most a hundred rows, and it is exactly what the live resource stream sends, so the node
+     * page's first render and the stream's backfill draw the same line.
+     */
+    static final int HISTORY_RAW_MAX_MINUTES = 5;
 
     /**
-     * Resource history over the last {@code minutes}, averaged into
-     * {@link #HISTORY_POINTS} buckets. The window is clamped so a bad query
+     * Resource history over the last {@code minutes}: raw scrapes for short windows, else
+     * averaged into {@link #HISTORY_POINTS} buckets. The window is clamped so a bad query
      * parameter cannot ask the hypertable for months of rows.
      */
     @Transactional(readOnly = true)
@@ -186,8 +192,15 @@ public class ServerService {
             throw new ServerNotFoundException(uuid);
         }
         int window = Math.clamp(minutes, HISTORY_MIN_MINUTES, HISTORY_MAX_MINUTES);
-        int bucketSeconds = window * 60 / HISTORY_POINTS;
         Instant since = Instant.now().minus(Duration.ofMinutes(window));
+        if (window <= HISTORY_RAW_MAX_MINUTES) {
+            return resourceRepository
+                    .findByServerIdAndRecordTimestampGreaterThanEqualOrderByRecordTimestampAsc(uuid, since)
+                    .stream()
+                    .map(r -> ResourcePoint.of(r, displayZone))
+                    .toList();
+        }
+        int bucketSeconds = window * 60 / HISTORY_POINTS;
         return resourceRepository.findHistory(uuid, since, bucketSeconds).stream()
                 .map(b -> ResourcePoint.of(b, displayZone))
                 .toList();

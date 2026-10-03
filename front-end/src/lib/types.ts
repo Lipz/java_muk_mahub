@@ -161,6 +161,16 @@ export type ResourcePoint = {
   netTxBps: number | null;
 };
 
+/**
+ * First event of GET /api/v1/servers/{uuid}/resources/stream: the node's
+ * latest scrapes, oldest first, and how far its clock runs behind the hub's
+ * (null when it is not reporting). `sample` events carry one ResourceSnapshot.
+ */
+export type ResourceStreamBackfill = {
+  skewMs: number | null;
+  samples: ResourceSnapshot[];
+};
+
 /** History plus the window it was requested for (epoch ms), so a chart can place gaps. */
 export type ResourceHistory = {
   points: ResourcePoint[];

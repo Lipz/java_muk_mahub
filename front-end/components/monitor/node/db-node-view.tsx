@@ -1,7 +1,8 @@
 import { formatAgo, formatBytes, formatPct, formatUptime, usageTone } from "@/src/lib/format";
-import type { NodeAlert } from "@/src/lib/health";
-import type { MountItem, ServerDetail } from "@/src/lib/types";
+import { resourceAlerts, type NodeAlert } from "@/src/lib/health";
+import type { MountItem, ResourceHistory, ServerDetail } from "@/src/lib/types";
 import { Empty } from "../indicators";
+import { LiveResourceTiles } from "./live-resource-tiles";
 import {
   AlertsRail,
   FactsList,
@@ -21,8 +22,8 @@ import {
  * Database node template, after the mockup's DB node view:
  * Overview · Sessions · Replication · Backups · Alert log.
  *
- * Only presence, uptime, storage and log-channel config come from the API
- * today. Panels the backend does not feed (sessions, top SQL, replication,
+ * Only presence, uptime, CPU / memory / network (live), storage and
+ * log-channel config come from the API today. Panels the backend does not feed (sessions, top SQL, replication,
  * tablespaces, backups, log content) keep their place in the layout and say
  * what they are waiting for — a monitoring screen must not show invented
  * numbers.
@@ -40,8 +41,19 @@ export type DbTab = (typeof DB_TABS)[number]["id"];
 
 const ink = (pct: number) => `color-mix(in srgb, var(--color-text) ${pct}%, transparent)`;
 
-export function DbNodeView({ node, tab, file }: { node: ServerDetail; tab: DbTab; file?: string }) {
-  const { mounts, alerts, statusLong, tone, headline } = nodeHealth(node);
+export function DbNodeView({
+  node,
+  tab,
+  file,
+  history,
+}: {
+  node: ServerDetail;
+  tab: DbTab;
+  file?: string;
+  /** Null when not fetched or the request failed; tiles fill from the live stream instead. */
+  history: ResourceHistory | null;
+}) {
+  const { mounts, alerts, statusLong, tone, headline } = nodeHealth(node, resourceAlerts(node.resources, history?.points ?? null));
   const basePath = `/dashboard/nodes/${node.uuid}`;
 
   return (
@@ -62,7 +74,7 @@ export function DbNodeView({ node, tab, file }: { node: ServerDetail; tab: DbTab
       />
       <NodeTabs basePath={basePath} tabs={[...DB_TABS]} active={tab} />
 
-      {tab === "overview" ? <Overview node={node} mounts={mounts} alerts={alerts} /> : null}
+      {tab === "overview" ? <Overview node={node} mounts={mounts} alerts={alerts} history={history} /> : null}
       {tab === "sessions" ? <Sessions /> : null}
       {tab === "replication" ? <Replication /> : null}
       {tab === "backups" ? <Backups /> : null}
@@ -71,47 +83,42 @@ export function DbNodeView({ node, tab, file }: { node: ServerDetail; tab: DbTab
   );
 }
 
-function Overview({ node, mounts, alerts }: { node: ServerDetail; mounts: MountItem[]; alerts: NodeAlert[] }) {
+function Overview({
+  node,
+  mounts,
+  alerts,
+  history,
+}: {
+  node: ServerDetail;
+  mounts: MountItem[];
+  alerts: NodeAlert[];
+  history: ResourceHistory | null;
+}) {
   const st = node.storage;
   const measured = mounts.filter((m) => !m.error && m.usedPct != null);
-  const busiest = measured.reduce<MountItem | null>((w, m) => (w == null || m.usedPct! > w.usedPct! ? m : w), null);
   const failed = mounts.length - measured.length;
   const hot = measured.filter((m) => usageTone(m.usedPct) === "warn" || usageTone(m.usedPct) === "crit").length;
 
   return (
     <div>
-      <div className="grid grid-cols-2 gap-5 px-6 pt-[22px] pb-1.5 lg:grid-cols-4">
-        <Tile
-          label="Disk · host"
-          value={formatPct(st?.usedPct)}
-          delta={st ? `${formatBytes(st.freeBytes)} free` : undefined}
-          deltaTone={st && usageTone(st.usedPct) !== "ok" ? toneVar[usageTone(st.usedPct)] : undefined}
-          pct={st?.usedPct}
-          foot={st ? `${formatBytes(st.usedBytes)} / ${formatBytes(st.totalBytes)}${st.partial ? " · partial" : ""}` : "no storage scrape"}
-        />
-        <Tile
-          label={busiest ? `Disk ${busiest.mountPoint}` : "Busiest mount"}
-          value={busiest ? formatPct(busiest.usedPct) : "—"}
-          delta={busiest ? `${formatBytes(busiest.freeBytes)} free` : undefined}
-          deltaTone={busiest && usageTone(busiest.usedPct) !== "ok" ? toneVar[usageTone(busiest.usedPct)] : undefined}
-          pct={busiest?.usedPct}
-          foot={busiest ? `${formatBytes(busiest.usedBytes)} / ${formatBytes(busiest.totalBytes)} · ${busiest.device ?? "—"}` : "no mounts measured"}
-        />
-        <Tile
-          label="Filesystems"
-          value={String(mounts.length)}
-          delta={hot ? `${hot} above 75%` : failed ? undefined : "all healthy"}
-          deltaTone={hot ? toneVar.warn : undefined}
-          foot={failed ? `${failed} could not be measured` : "all measured"}
-        />
-        <Tile
-          label="Uptime"
-          value={formatUptime(node.uptimeSeconds)}
-          delta={node.online === false ? "stale" : undefined}
-          deltaTone={node.online === false ? toneVar.crit : undefined}
-          foot={`seen ${formatAgo(node.lastSeenAt)}`}
-        />
-      </div>
+      {/* The template leads with Sessions; that feed does not exist, so the resource tiles take the row */}
+      <LiveResourceTiles
+        uuid={node.uuid}
+        initial={node.resources}
+        lastSeenAt={node.online === false ? null : node.lastSeenAt}
+        history={history}
+        order={["cpu", "memory", "network", "disk"]}
+        disk={
+          <Tile
+            label="Disk · host"
+            value={formatPct(st?.usedPct)}
+            delta={st ? `${formatBytes(st.freeBytes)} free` : undefined}
+            deltaTone={st && usageTone(st.usedPct) !== "ok" ? toneVar[usageTone(st.usedPct)] : undefined}
+            pct={st?.usedPct}
+            foot={st ? `${formatBytes(st.usedBytes)} / ${formatBytes(st.totalBytes)}${st.partial ? " · partial" : ""}` : "no storage scrape"}
+          />
+        }
+      />
 
       <div className="grid gap-6 px-6 pt-[18px] pb-7 lg:grid-cols-[minmax(0,1fr)_300px]">
         <div className="flex min-w-0 flex-col gap-6">
@@ -120,7 +127,9 @@ function Overview({ node, mounts, alerts }: { node: ServerDetail; mounts: MountI
               title="Storage"
               meta={
                 mounts.length
-                  ? `${hot} of ${mounts.length} partitions above 75%${st?.recordedAt ? ` · sampled ${formatAgo(st.recordedAt)}` : ""}`
+                  ? `${hot} of ${mounts.length} partitions above 75%${failed ? ` · ${failed} not measured` : ""}${
+                      st?.recordedAt ? ` · sampled ${formatAgo(st.recordedAt)}` : ""
+                    }`
                   : undefined
               }
             />

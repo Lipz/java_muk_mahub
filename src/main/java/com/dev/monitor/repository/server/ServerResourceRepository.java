@@ -34,6 +34,30 @@ public interface ServerResourceRepository extends JpaRepository<ServerResource, 
     List<ServerResource> findByServerIdAndRecordTimestampBetween(
             String serverId, Instant start, Instant end);
 
+    /** Raw scrapes since a point in time, oldest first: short history windows. */
+    List<ServerResource> findByServerIdAndRecordTimestampGreaterThanEqualOrderByRecordTimestampAsc(
+            String serverId, Instant since);
+
+    /**
+     * The last {@code seconds} of a server's own timeline, oldest first: the backfill of a live
+     * resource stream.
+     *
+     * Measured back from the newest scrape rather than from now(): record_timestamp is the
+     * agent's clock, and an agent running a minute or two behind the hub would otherwise have
+     * no "recent" rows at all. For a server that stopped reporting this returns the minute
+     * before it went quiet, which the client places in the past, not on screen.
+     */
+    @Query(value = """
+            SELECT *
+            FROM server_resources
+            WHERE server_id = :serverId
+              AND record_timestamp >= (SELECT max(record_timestamp)
+                                       FROM server_resources
+                                       WHERE server_id = :serverId) - :seconds * interval '1 second'
+            ORDER BY record_timestamp
+            """, nativeQuery = true)
+    List<ServerResource> findLatestSpan(@Param("serverId") String serverId, @Param("seconds") long seconds);
+
     /**
      * The most recent scrape for each of the given servers, in one query.
      *
